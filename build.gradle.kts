@@ -93,6 +93,29 @@ loom {
 
 java { withSourcesJar() }
 
+// Offline verification only: never included in the distributable mod.
+val smoke by sourceSets.creating {
+    compileClasspath += sourceSets.main.get().output + sourceSets.main.get().compileClasspath
+    runtimeClasspath += sourceSets.main.get().output + sourceSets.main.get().runtimeClasspath
+}
+loom {
+    mods {
+        create("tropimon_catch_preview") { sourceSet(sourceSets.main.get()) }
+        create("catch_preview_smoke") { sourceSet(smoke) }
+    }
+}
+val smokeJar by tasks.registering(Jar::class) {
+    from(smoke.output)
+    archiveClassifier.set("smoke-dev")
+    destinationDirectory.set(layout.buildDirectory.dir("smoke-helper"))
+}
+tasks.register<net.fabricmc.loom.task.RemapJarTask>("remapSmokeJar") {
+    inputFile.set(smokeJar.flatMap { it.archiveFile })
+    archiveClassifier.set("smoke")
+    destinationDirectory.set(layout.buildDirectory.dir("smoke-helper"))
+    addNestedDependencies.set(false)
+}
+
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.release.set(21)

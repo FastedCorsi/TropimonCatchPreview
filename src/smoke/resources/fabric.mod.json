@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "catch_preview_smoke",
+  "version": "1.0.0",
+  "authors": ["By FastedCorsi"],
+  "environment": "client",
+  "entrypoints": {"client": ["fr.tropimon.catchpreview.CatchPreviewSmoke"]},
+  "mixins": ["catch_preview_smoke.mixins.json"],
+  "depends": {"tropimon_catch_preview": "*"}
+}

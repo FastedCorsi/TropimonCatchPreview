@@ -75,6 +75,18 @@ public final class CatchPreviewRenderer {
         MinecraftClient client = MinecraftClient.getInstance();
         if (pokemon == null || client.player == null || client.options.hudHidden) return;
         if (textPokemon != pokemon) refreshText();
+        // Flush native HUD batches first so hotbar slots cannot later cover the IVs.
+        context.draw();
+        context.getMatrices().push();
+        try {
+            drawCard(context, pokemon, client);
+            context.draw();
+        } finally {
+            context.getMatrices().pop();
+        }
+    }
+
+    private static void drawCard(DrawContext context, Pokemon pokemon, MinecraftClient client) {
         TextRenderer tr = client.textRenderer;
         int x = left(context.getScaledWindowWidth());
         int y = top(context.getScaledWindowHeight());

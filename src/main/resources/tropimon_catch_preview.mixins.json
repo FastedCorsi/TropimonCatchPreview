@@ -12,6 +12,7 @@
     "StorageManagerMixin",
     "InitializePCHandlerMixin",
     "MouseMixin",
+    "PreviewHudLayerMixin",
     "OpenPCHandlerMixin",
     "SetPartyReferenceHandlerMixin"
   ],
