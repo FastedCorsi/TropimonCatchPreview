@@ -4,6 +4,19 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class WindowPositionTest {
+    @Test void allFourGuiSizesAndResizeKeepTheWholeWindowAndDragTargetVisible() {
+        var p = new WindowPosition(150, 109);
+        for (int[] viewport : new int[][]{{1920,1080},{960,540},{640,360},{480,270},{320,240},{427,240}}) {
+            int width = viewport[0], height = viewport[1];
+            assertTrue(p.left(width) >= 2 && p.left(width) + 150 <= width - 2);
+            assertTrue(p.top(height) >= 2 && p.top(height) + 109 <= height - 2);
+            assertTrue(p.start(p.left(width) + 12, p.top(height) + 8, width, height));
+            assertTrue(p.drag(width * 2, height * 2, width, height));
+            assertEquals(width - 152, p.left(width));
+            assertEquals(height - 111, p.top(height));
+            assertTrue(p.stop());
+        }
+    }
     @Test void defaultPositionIsUnchanged() {
         var p = new WindowPosition(150, 101);
         assertEquals(638, p.left(800)); assertEquals(348, p.top(600));
