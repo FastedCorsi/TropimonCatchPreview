@@ -12,6 +12,29 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Bytecode checks without loading another mod or booting Minecraft in the test JVM. */
 class IntegrationContractTest {
+    @Test void officialTradeOfferIsRememberedBeforeStorageAndMixinIsRegistered() throws Exception {
+        String registered = Files.readString(Path.of("src/main/resources/tropimon_catch_preview.mixins.json"));
+        assertTrue(registered.contains("\"TradeUpdatedHandlerMixin\""));
+        var mixin = node(Files.readAllBytes(Path.of(
+                "build/classes/java/main/fr/tropimon/catchpreview/mixin/TradeUpdatedHandlerMixin.class")));
+        var hook = mixin.methods.stream().filter(m -> m.name.endsWith("$offered")).findFirst().orElseThrow();
+        var inject = hook.visibleAnnotations.stream().filter(a -> a.desc.endsWith("/Inject;")).findFirst().orElseThrow();
+        @SuppressWarnings("unchecked") var points = (List<AnnotationNode>) value(inject, "at");
+        assertEquals("HEAD", value(points.getFirst(), "value"));
+        var calls = new ArrayList<String>();
+        for (var instruction : hook.instructions) if (instruction instanceof MethodInsnNode call) calls.add(call.name);
+        assertTrue(calls.contains("getPokemon"));
+        assertTrue(calls.indexOf("getUuid") < calls.indexOf("remember"));
+        assertFalse(calls.contains("close"), "Do not close a concurrent real capture or release confirmation");
+        var state = node(Files.readAllBytes(Path.of("build/classes/java/main/fr/tropimon/catchpreview/CatchPreviewState.class")));
+        var check = state.methods.stream().filter(m -> m.name.equals("alreadyStored")).findFirst().orElseThrow();
+        var owners = new HashSet<String>();
+        for (var instruction : check.instructions) if (instruction instanceof MethodInsnNode call
+                && call.name.equals("findByUUID")) owners.add(call.owner);
+        assertTrue(owners.contains("com/cobblemon/mod/common/client/storage/ClientParty"));
+        assertTrue(owners.contains("com/cobblemon/mod/common/client/storage/ClientPC"));
+    }
+
     @Test void installedTeamBuilderUsesCoveredOfficialTransferPackets() throws Exception {
         String directory = System.getProperty("catchpreview.coexistenceMods");
         org.junit.jupiter.api.Assumptions.assumeTrue(directory != null, "Optional installed-mod compatibility audit");
@@ -137,6 +160,11 @@ class IntegrationContractTest {
                 if (portraitCompatibilityAdapter) {
                     assertTrue(bytes.contains("com.cobblemon.mod.common.client.gui.ProfileTransformType"),
                             file.toString());
+                } else if (file.getFileName().toString().equals("PokemonDetails.class")) {
+                    assertTrue(bytes.contains("isAlpha"));
+                    assertTrue(bytes.contains("getSizeCategory"));
+                    assertTrue(bytes.contains("java/lang/NoSuchMethodException"));
+                    assertFalse(bytes.contains("forName"));
                 } else {
                     assertFalse(bytes.contains("java/lang/reflect"), file.toString());
                     assertFalse(bytes.contains("forName"), file.toString());

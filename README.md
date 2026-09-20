@@ -12,7 +12,7 @@ Partager seulement les artefacts de la version validée dans `build/libs` et l'a
 
 Pour un environnement différent, définir `TROPIMON_HOME` ou fournir `-PcobblemonJar=<chemin-vers-cobblemon.jar>`. Le script de vérification accepte `-LauncherDirectory`. Aucune installation ou publication n'est exécutée par `build`.
 
-Mod client Fabric 1.21.1 pour Cobblemon 1.7.2. Après une capture réussie, une fiche non bloquante apparaît à droite avec le modèle du Pokémon, son niveau, son sexe, sa nature, son talent et ses six IV.
+Mod client Fabric 1.21.1 pour Cobblemon >=1.7.2. Après une capture réussie, une fiche non bloquante apparaît à droite avec le modèle du Pokémon, son niveau, son sexe, sa nature, son talent et ses six IV.
 
 Les captures directes réalisées sans entrer en combat sont également détectées.
 
@@ -23,6 +23,15 @@ Les captures directes réalisées sans entrer en combat sont également détect�
 - À proximité d'un PC Cobblemon, le bouton `REL` permet de relâcher le Pokémon après un second clic de confirmation.
 - Le bandeau est déplaçable lorsque le curseur est libre (chat, inventaire, etc.). Fermer la fiche ne réinitialise pas sa position : la prochaine capture réutilise la même position, conservée pendant l'exécution du jeu.
 - La notification n'ouvre aucun écran et n'interrompt pas les déplacements/combats. Un relâchement depuis le PC peut ouvrir brièvement son interface pour établir le lien serveur officiel.
+
+## Version 0.6.9 — Alpha, taille et échanges
+
+- Sous le niveau, la fiche affiche la taille XS/S/M/L/XL et le statut Alpha lorsqu'il est présent. Ces données officielles sont disponibles depuis Cobblemon 1.8 ; sur 1.7, elles restent absentes. Les traductions suivent la langue du jeu.
+- Les Pokémon proposés dans un échange officiel sont mémorisés avant leur arrivée dans l'équipe. Le retrait puis l'ajout d'un Pokémon reçu ne déclenche plus de fausse capture, y compris après évolution ou transfert ultérieur vers le PC.
+- Les déplacements PC/équipe restent filtrés individuellement par UUID. Une vérification supplémentaire, uniquement lors d'une arrivée potentiellement nouvelle, exclut les Pokémon déjà présents dans un autre stockage. Les vraies captures simultanées restent affichées.
+- La largeur reste à 150 pixels ; une ligne de 8 pixels en hauteur laisse la place aux nouvelles informations. Déplacement, fermeture et confirmation de relâchement sont conservés.
+- Le build identifie Cobblemon par ses métadonnées dans l'unique profil du launcher, même si le fichier porte un nom haché. Avec plusieurs profils, fournir explicitement `-PcobblemonJar=<jar>`.
+- L'installation locale utilise une copie autonome de `InstallManagedLocalMod.ps1` pour synchroniser `mods-user`, `mods` et le suivi du launcher après fermeture du jeu.
 
 ## Version 0.6.2 — Insignes
 
@@ -49,7 +58,7 @@ L'icône officielle de l'onglet Insignes Cobblemon apparaît à gauche du niveau
 Audit facultatif des paquets réellement utilisés par le Team Builder installé :
 
 ```powershell
-.\gradlew.bat -p .\TropimonCatchPreview build "-PcoexistenceAuditDir=$env:APPDATA/.tropimon/mods"
+.\gradlew.bat -p .\TropimonCatchPreview build "-PcoexistenceAuditDir=$env:APPDATA/.tropimon/profiles/stable/instance/mods"
 ```
 
 `tools/VerifyClient.ps1 -Mode standalone` lance le JAR remappé avec seulement Cobblemon, Fabric API et Fabric Language Kotlin dans `build/verify-standalone`.
@@ -71,9 +80,11 @@ Depuis le dossier parent :
 Installation locale :
 
 ```powershell
-.\gradlew.bat -p .\TropimonCatchPreview installTropimonCatchPreviewLocal
+.\gradlew.bat -p .\TropimonCatchPreview armReleaseLocal
 ```
 
+
+Les deux JAR sont préparés dans `build/delivery/<version>/local` et `shareable`. Ne pas relancer la préparation dans un dossier de livraison existant. Pour une livraison déjà préparée, utiliser son script `local/install-local-deferred.ps1`.
 
 ## Mises à jour automatiques
 

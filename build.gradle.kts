@@ -1,4 +1,6 @@
 import java.security.MessageDigest
+import java.util.zip.ZipFile
+import groovy.json.JsonSlurper
 
 plugins {
     id("fabric-loom") version "1.15.5"
@@ -15,17 +17,33 @@ repositories {
     maven("https://api.modrinth.com/maven")
 }
 
-val launcherHome = providers.environmentVariable("TROPIMON_HOME").orNull?.let(::file)
-    ?: providers.environmentVariable("APPDATA").orNull?.let { file(it).resolve(".tropimon") }
-    ?: file(System.getProperty("user.home")).resolve(".tropimon")
-val localMods = launcherHome.resolve("mods")
+val launcherHome = sequenceOf(
+    providers.environmentVariable("TROPIMON_HOME").orNull?.let(::file),
+    providers.environmentVariable("APPDATA").orNull?.let { file(it).resolve(".tropimon") },
+    file(System.getProperty("user.home")).resolve(".tropimon")
+).filterNotNull().firstOrNull { it.resolve("profiles").isDirectory || it.resolve("mods").isDirectory }
 val officialDependenciesOnly = providers.gradleProperty("officialDependenciesOnly").isPresent
 val cobblemonJar = if (officialDependenciesOnly) null else providers.gradleProperty("cobblemonJar").orNull?.let(::file) ?: run {
-    val installed = localMods.listFiles()
-        ?.filter { it.isFile && it.name.matches(Regex("Cobblemon-fabric-.+\\.jar", RegexOption.IGNORE_CASE)) }
+    val profiles = launcherHome?.resolve("profiles")?.listFiles()
+        ?.filter { it.resolve("instance/mods").isDirectory }.orEmpty()
+    if (profiles.size > 1) throw GradleException("Profil actif ambigu ; définir -PcobblemonJar=<jar>.")
+    val localMods = profiles.singleOrNull()?.resolve("instance/mods") ?: launcherHome?.resolve("mods")
+    val installed = localMods?.listFiles()
+        ?.filter { candidate ->
+            candidate.isFile && candidate.extension.equals("jar", true) && ZipFile(candidate).use { zip ->
+                zip.getEntry("fabric.mod.json")?.let { entry ->
+                    zip.getInputStream(entry).reader().use { reader ->
+                        (JsonSlurper().parse(reader) as Map<*, *>)["id"] == "cobblemon"
+                    }
+                } ?: false
+            }
+        }
         .orEmpty()
     if (installed.size > 1) {
         throw GradleException("Plusieurs JAR Cobblemon détectés ; définir -PcobblemonJar=<jar>.")
+    }
+    if (localMods?.isDirectory == true && installed.isEmpty()) {
+        throw GradleException("Aucun JAR Cobblemon actif ; définir -PcobblemonJar=<jar> pour la matrice explicite.")
     }
     installed.singleOrNull()
 }
@@ -132,11 +150,12 @@ val prepareReleaseDelivery = tasks.register("prepareReleaseDelivery") {
     dependsOn(tasks.build)
     doLast {
         val source = tasks.remapJar.get().archiveFile.get().asFile
-        val deliveryRoot = layout.buildDirectory.dir("release").get().asFile
+        val deliveryRoot = layout.buildDirectory.dir("delivery/${project.version}").get().asFile
         val shareDirectory = deliveryRoot.resolve("shareable")
         val localDirectory = deliveryRoot.resolve("local")
-        shareDirectory.deleteRecursively()
-        localDirectory.deleteRecursively()
+        check(!shareDirectory.exists() && !localDirectory.exists()) {
+            "La livraison existe déjà ; préserver ses fichiers et utiliser une nouvelle version."
+        }
         shareDirectory.mkdirs()
         localDirectory.mkdirs()
 
@@ -159,6 +178,8 @@ val prepareReleaseDelivery = tasks.register("prepareReleaseDelivery") {
         copyAndHash(localDirectory.resolve("TropimonCatchPreview-${project.version}+1.21.1-LOCAL.jar"))
         file("tools/install-local-deferred.ps1")
             .copyTo(localDirectory.resolve("install-local-deferred.ps1"), overwrite = true)
+        file("tools/InstallManagedLocalMod.ps1")
+            .copyTo(localDirectory.resolve("InstallManagedLocalMod.ps1"), overwrite = true)
     }
 }
 
@@ -167,7 +188,7 @@ tasks.register("armReleaseLocal") {
     description = "Arme l'installation locale différée sans arrêter Minecraft ni le launcher."
     dependsOn(prepareReleaseDelivery)
     doLast {
-        val script = layout.buildDirectory.file("release/local/install-local-deferred.ps1").get().asFile
+        val script = layout.buildDirectory.file("delivery/${project.version}/local/install-local-deferred.ps1").get().asFile
         ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden",
             "-ExecutionPolicy", "Bypass", "-File", script.absolutePath)
             .directory(script.parentFile)

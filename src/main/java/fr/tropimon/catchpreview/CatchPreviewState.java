@@ -1,6 +1,7 @@
 package fr.tropimon.catchpreview;
 
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import com.cobblemon.mod.common.client.CobblemonClient;
 
 import java.util.UUID;
 
@@ -14,9 +15,19 @@ public final class CatchPreviewState {
         boolean captured = HISTORY.storageSet(previous == null ? null : previous.getUuid(),
                 pokemon == null ? null : pokemon.getUuid());
         if (pokemon == null) return;
-        if (captured) show(pokemon);
+        // This runs before the destination write, so a Pokémon already in another
+        // store is a transfer even when no outgoing move packet was observed.
+        if (captured && !alreadyStored(pokemon.getUuid())) show(pokemon);
         if (PREVIEW.visible != null && PREVIEW.visible.getUuid().equals(pokemon.getUuid())) PREVIEW.visible = pokemon;
         if (PREVIEW.queued != null && PREVIEW.queued.getUuid().equals(pokemon.getUuid())) PREVIEW.queued = pokemon;
+    }
+
+    private static boolean alreadyStored(UUID id) {
+        var storage = CobblemonClient.INSTANCE.getStorage();
+        var party = storage.getParty();
+        if (party != null && party.findByUUID(id) != null) return true;
+        for (var pc : storage.getPcStores().values()) if (pc.findByUUID(id) != null) return true;
+        return false;
     }
 
     public static synchronized Pokemon visible() {

@@ -16,7 +16,7 @@ import java.util.Map;
 
 public final class CatchPreviewRenderer {
     public static final int WIDTH = 150;
-    private static final int HEIGHT = 101;
+    static final int HEIGHT = 109;
     private static final Identifier PORTRAIT_BACKGROUND = Identifier.of("cobblemon", "textures/gui/summary/portrait_background.png");
     private static final Identifier TROPIMON_FRAME = Identifier.of("tropimon_catch_preview", "textures/gui/frame.png");
     private static final Map<String, Text> LABELS = new HashMap<>();
@@ -26,6 +26,7 @@ public final class CatchPreviewRenderer {
     private static Pokemon textPokemon;
     private static Text name = Text.empty(), level = Text.empty(), nature = Text.empty(), ability = Text.empty();
     private static boolean hiddenAbility;
+    private static Text details = Text.empty();
     static {
         for (int i = 0; i < IV_VALUES.length; i++) IV_VALUES[i] = Text.literal(Integer.toString(i));
         for (String key : new String[]{"hp", "attack", "defence", "special_attack", "special_defence", "speed"}) {
@@ -39,7 +40,7 @@ public final class CatchPreviewRenderer {
     static void refreshText() {
         textPokemon = CatchPreviewState.visible();
         PreviewMarks.refresh(textPokemon);
-        if (textPokemon == null) { name = level = nature = ability = Text.empty(); return; }
+        if (textPokemon == null) { name = level = nature = ability = details = Text.empty(); return; }
         var tr = MinecraftClient.getInstance().textRenderer;
         name = reuse(name, tr.trimToWidth(textPokemon.getDisplayName(false).getString(), 52));
         nature = reuse(nature, tr.trimToWidth(natureText(textPokemon).getString(), 78));
@@ -47,6 +48,12 @@ public final class CatchPreviewRenderer {
         level = reuse(level, Text.translatable("gui.tropimon_catch_preview.level", textPokemon.getLevel())
                 .append("  " + gender(textPokemon.getGender())).getString());
         hiddenAbility = isHiddenAbility(textPokemon);
+        String size = PokemonDetails.size(textPokemon);
+        String sizeText = size.isEmpty() ? "" : Text.translatable("gui.tropimon_catch_preview.size", size).getString();
+        details = reuse(details, PokemonDetails.alpha(textPokemon)
+                ? Text.translatable("gui.tropimon_catch_preview.alpha").getString()
+                    + (sizeText.isEmpty() ? "" : " · " + sizeText)
+                : sizeText);
     }
 
     private static Text reuse(Text previous, String value) {
@@ -102,18 +109,25 @@ public final class CatchPreviewRenderer {
 
         int tx = x + 61;
         context.drawTextWithShadow(tr, level, tx, y + 23, genderColor(pokemon.getGender()));
-        context.drawTextWithShadow(tr, label("gui.tropimon_catch_preview.nature"), tx, y + 34, 0xFF9BA6AD);
-        context.drawTextWithShadow(tr, nature, tx, y + 43, 0xFFFFFFFF);
-        context.drawTextWithShadow(tr, label("gui.tropimon_catch_preview.ability"), tx, y + 53, 0xFF9BA6AD);
-        context.drawTextWithShadow(tr, ability, tx, y + 62,
+        context.getMatrices().push();
+        try {
+            context.getMatrices().translate(tx, y + 34, 0);
+            float detailScale = Math.min(0.75F, 80.0F / Math.max(1, tr.getWidth(details)));
+            context.getMatrices().scale(detailScale, detailScale, 1);
+            context.drawTextWithShadow(tr, details, 0, 0, 0xFFB8DDE5);
+        } finally { context.getMatrices().pop(); }
+        context.drawTextWithShadow(tr, label("gui.tropimon_catch_preview.nature"), tx, y + 42, 0xFF9BA6AD);
+        context.drawTextWithShadow(tr, nature, tx, y + 51, 0xFFFFFFFF);
+        context.drawTextWithShadow(tr, label("gui.tropimon_catch_preview.ability"), tx, y + 61, 0xFF9BA6AD);
+        context.drawTextWithShadow(tr, ability, tx, y + 70,
                 hiddenAbility ? 0xFFFFD84D : 0xFFFFFFFF);
-        context.fill(x + 8, y + 73, x + WIDTH - 8, y + 74, 0xAA58DFF4);
-        drawIv(context, tr, "hp", pokemon.getIvs().getOrDefault(Stats.HP), x + 8, y + 77);
-        drawIv(context, tr, "attack", pokemon.getIvs().getOrDefault(Stats.ATTACK), x + 54, y + 77);
-        drawIv(context, tr, "defence", pokemon.getIvs().getOrDefault(Stats.DEFENCE), x + 101, y + 77);
-        drawIv(context, tr, "special_attack", pokemon.getIvs().getOrDefault(Stats.SPECIAL_ATTACK), x + 8, y + 88);
-        drawIv(context, tr, "special_defence", pokemon.getIvs().getOrDefault(Stats.SPECIAL_DEFENCE), x + 54, y + 88);
-        drawIv(context, tr, "speed", pokemon.getIvs().getOrDefault(Stats.SPEED), x + 101, y + 88);
+        context.fill(x + 8, y + 81, x + WIDTH - 8, y + 82, 0xAA58DFF4);
+        drawIv(context, tr, "hp", pokemon.getIvs().getOrDefault(Stats.HP), x + 8, y + 85);
+        drawIv(context, tr, "attack", pokemon.getIvs().getOrDefault(Stats.ATTACK), x + 54, y + 85);
+        drawIv(context, tr, "defence", pokemon.getIvs().getOrDefault(Stats.DEFENCE), x + 101, y + 85);
+        drawIv(context, tr, "special_attack", pokemon.getIvs().getOrDefault(Stats.SPECIAL_ATTACK), x + 8, y + 95);
+        drawIv(context, tr, "special_defence", pokemon.getIvs().getOrDefault(Stats.SPECIAL_DEFENCE), x + 54, y + 95);
+        drawIv(context, tr, "speed", pokemon.getIvs().getOrDefault(Stats.SPEED), x + 101, y + 95);
     }
 
     public static void renderMarkTooltip(DrawContext context, int mouseX, int mouseY) {

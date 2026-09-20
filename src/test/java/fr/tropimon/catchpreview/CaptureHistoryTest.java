@@ -5,6 +5,19 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CaptureHistoryTest {
+    @Test void tradedPokemonIsIgnoredBeforeStorageAddWithoutSuppressingConcurrentCaptures() {
+        var h = new CaptureHistory(); h.ready();
+        UUID offered = UUID.randomUUID(), outgoing = UUID.randomUUID();
+        h.remember(outgoing);
+        h.remember(offered); // Official trade offer, before completion and storage updates.
+        assertFalse(h.storageSet(outgoing, null));
+        assertTrue(h.storageSet(null, UUID.randomUUID()));
+        assertFalse(h.storageSet(null, offered));
+        assertTrue(h.storageSet(null, UUID.randomUUID()));
+        assertFalse(h.storageSet(offered, offered)); // Trade evolution/update.
+        assertFalse(h.storageSet(offered, null));
+        assertFalse(h.storageSet(null, offered)); // Later PC -> party transfer.
+    }
     @Test void initialSyncAndPostBattleUpdatesAreNotCaptures() {
         var h = new CaptureHistory();
         UUID team = UUID.randomUUID();
